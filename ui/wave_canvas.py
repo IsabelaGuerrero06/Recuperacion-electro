@@ -36,14 +36,34 @@ class WaveCanvas(QWidget):
         self.t = 0.0
 
         self.timer = QTimer()
+        self.is_running = False
 
         self.timer.timeout.connect(
             self.update_simulation
         )
 
-        self.timer.start(16)
+        self.start()
+
+    def start(self):
+        if not self.timer.isActive():
+            self.timer.start(16)
+
+        self.is_running = True
+
+    def pause(self):
+        self.timer.stop()
+        self.is_running = False
+
+    def toggle(self):
+        if self.is_running:
+            self.pause()
+        else:
+            self.start()
 
     def update_simulation(self):
+        if not self.is_running:
+            return
+
         self.t += self.dt * self.time_scale
 
         self.update()
@@ -89,7 +109,7 @@ class WaveCanvas(QWidget):
 
         painter.fillRect(
             material_x - 40,
-            30,
+            10,
             80,
             height - 100,
             QColor(200, 200, 200, 100)

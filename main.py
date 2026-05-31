@@ -7,6 +7,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QFrame,
+    QLabel,
+    QPushButton,
 )
 
 from ui.wave_canvas import WaveCanvas
@@ -75,7 +77,43 @@ class Simulador(QWidget):
             vidrio
         )
 
+        self.simulaciones = [
+            simulacion
+        ]
+
+        self.is_paused = False
+
         controles = Panel()
+
+        controles_layout = QVBoxLayout(controles)
+        controles_layout.setContentsMargins(12, 12, 12, 12)
+        controles_layout.setSpacing(10)
+
+        self.estado_simulacion = QLabel(
+            "Simulacion: Activa"
+        )
+
+        self.estado_simulacion.setStyleSheet(
+            "color: #e0e0e0;"
+        )
+
+        self.toggle_btn = QPushButton(
+            "Pausar"
+        )
+
+        self.toggle_btn.clicked.connect(
+            self.toggle_simulacion
+        )
+
+        controles_layout.addWidget(
+            self.estado_simulacion
+        )
+
+        controles_layout.addWidget(
+            self.toggle_btn
+        )
+
+        controles_layout.addStretch(1)
 
         left_layout.addWidget(
             simulacion,
@@ -125,6 +163,34 @@ class Simulador(QWidget):
             right_layout,
             3
         )
+
+    def toggle_simulacion(self):
+        if self.is_paused:
+            for simulacion in self.simulaciones:
+                simulacion.start()
+
+            self.estado_simulacion.setText(
+                "Simulacion: Activa"
+            )
+
+            self.toggle_btn.setText(
+                "Pausar"
+            )
+
+            self.is_paused = False
+        else:
+            for simulacion in self.simulaciones:
+                simulacion.pause()
+
+            self.estado_simulacion.setText(
+                "Simulacion: Pausada"
+            )
+
+            self.toggle_btn.setText(
+                "Reanudar"
+            )
+
+            self.is_paused = True
 
 
 if __name__ == "__main__":
