@@ -13,7 +13,25 @@ from PyQt6.QtWidgets import (
 
 from ui.wave_canvas import WaveCanvas
 from physics.material import Material
+from ui.field_canvas import FieldCanvas
 
+from physics.waves import (
+    campo_electrico_incidente,
+    campo_electrico_resultante,
+    campo_magnetico_incidente,
+    campo_magnetico_resultante
+)
+
+def B_incidente_visual(x, t):
+    return campo_magnetico_incidente(x, t) * 3e8
+
+
+def B_resultante_visual(x, t, material):
+    return campo_magnetico_resultante(
+        x,
+        t,
+        material
+    ) * 3e8
 
 class Panel(QFrame):
 
@@ -76,9 +94,23 @@ class Simulador(QWidget):
         simulacion = WaveCanvas(
             vidrio
         )
+        campo_electrico = FieldCanvas(
+            material=vidrio,
+            incidente_func=campo_electrico_incidente,
+            resultante_func=campo_electrico_resultante,
+            color="#00bfff",
+            titulo="Campo Eléctrico E(x,t)"
+        )
+        campo_magnetico = FieldCanvas(
+                material=vidrio,
+                incidente_func=B_incidente_visual,
+                resultante_func=B_resultante_visual,
+                color="#ff4477",
+                titulo="Campo Magnético B(x,t)"
+            )
 
         self.simulaciones = [
-            simulacion
+            simulacion, campo_electrico, campo_magnetico
         ]
 
         self.is_paused = False
@@ -131,8 +163,7 @@ class Simulador(QWidget):
 
         right_layout = QVBoxLayout()
 
-        campo_electrico = Panel()
-        campo_magnetico = Panel()
+       
         geometria = Panel()
 
         right_layout.addWidget(
