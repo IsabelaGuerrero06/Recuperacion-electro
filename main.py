@@ -1,14 +1,13 @@
 import sys
 import numpy as np
-
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
-    QFrame,
     QLabel,
     QPushButton,
+  
 )
 
 from ui.wave_canvas import WaveCanvas
@@ -19,8 +18,12 @@ from physics.waves import (
     campo_electrico_incidente,
     campo_electrico_resultante,
     campo_magnetico_incidente,
-    campo_magnetico_resultante
+    campo_magnetico_resultante,
 )
+
+
+from models.sidebar import CalculationSidebar
+from models.panel import Panel
 
 def B_incidente_visual(x, t):
     return campo_magnetico_incidente(x, t) * 3e8
@@ -32,27 +35,6 @@ def B_resultante_visual(x, t, material):
         t,
         material
     ) * 3e8
-
-class Panel(QFrame):
-
-    def __init__(self, name=""):
-
-        super().__init__()
-
-        self.setFrameShape(
-            QFrame.Shape.Box
-        )
-
-        self.setLineWidth(2)
-
-        self.setStyleSheet("""
-            QFrame {
-                background-color: #1e1e1e;
-                border: 2px solid #4a4a4a;
-                border-radius: 5px;
-            }
-        """)
-
 
 class Simulador(QWidget):
 
@@ -133,8 +115,16 @@ class Simulador(QWidget):
             "Pausar"
         )
 
+        self.toggle_sidebar_btn = QPushButton(
+            "Ocultar calculos"
+        )
+
         self.toggle_btn.clicked.connect(
             self.toggle_simulacion
+        )
+
+        self.toggle_sidebar_btn.clicked.connect(
+            self.toggle_sidebar
         )
 
         controles_layout.addWidget(
@@ -143,6 +133,10 @@ class Simulador(QWidget):
 
         controles_layout.addWidget(
             self.toggle_btn
+        )
+
+        controles_layout.addWidget(
+            self.toggle_sidebar_btn
         )
 
         controles_layout.addStretch(1)
@@ -163,8 +157,12 @@ class Simulador(QWidget):
 
         right_layout = QVBoxLayout()
 
-       
-        geometria = Panel()
+        self.sidebar = CalculationSidebar(
+            simulacion,
+            vidrio
+        )
+
+        self.simulaciones.append(self.sidebar)
 
         right_layout.addWidget(
             campo_electrico,
@@ -177,8 +175,8 @@ class Simulador(QWidget):
         )
 
         right_layout.addWidget(
-            geometria,
-            3
+            self.sidebar,
+            4
         )
 
         # ==========================
@@ -222,6 +220,19 @@ class Simulador(QWidget):
             )
 
             self.is_paused = True
+
+    def toggle_sidebar(self):
+        visible = self.sidebar.isVisible()
+        self.sidebar.setVisible(not visible)
+
+        if visible:
+            self.toggle_sidebar_btn.setText(
+                "Mostrar calculos"
+            )
+        else:
+            self.toggle_sidebar_btn.setText(
+                "Ocultar calculos"
+            )
 
 
 if __name__ == "__main__":

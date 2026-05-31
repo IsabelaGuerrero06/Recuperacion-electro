@@ -233,3 +233,11 @@ class WaveCanvas(QWidget):
             130,
             f"Resultante = {r:.2f}"
         )
+
+    def sample_x(self):
+        width = self.width()
+        if width <= 0:
+            return 0.0
+
+        material_x = width // 2
+        return (material_x + 100) * self.dx
