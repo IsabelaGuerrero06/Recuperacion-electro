@@ -120,7 +120,7 @@ class WaveCanvas(QWidget):
         # ==========================
 
         painter.setPen(
-            QPen(QColor("#00bfff"), 3)
+            QPen(QColor("#00ff88"), 3)
         )
 
         for x in range(material_x):
@@ -150,7 +150,7 @@ class WaveCanvas(QWidget):
         # ==========================
 
         painter.setPen(
-            QPen(QColor("#00ff88"), 3)
+            QPen(QColor("#cfe966"), 3)
         )
 
         for x in range(material_x, width):
