@@ -1,25 +1,19 @@
 import numpy as np
 
-# Velocidad de la luz en el vacío (m/s)
+# Velocidad de la luz en el vacio (m/s)
 C = 3e8
 
 # Longitud de onda incidente (m)
 LAMBDA_1 = 500e-9  # 500 nm (verde)
 
-# Escala visual de longitud de onda
-# Mayor valor = onda mas larga en pantalla
-LAMBDA_ESCALA = 10.0
-
-LAMBDA_VISUAL = LAMBDA_1 * LAMBDA_ESCALA
-
 # Frecuencia (Hz)
-F_1 = C / LAMBDA_VISUAL
+F_1 = C / LAMBDA_1
 
 # Frecuencia angular (rad/s)
 OMEGA_1 = 2 * np.pi * F_1
 
-# Número de onda (rad/m)
-K_1 = 2 * np.pi / LAMBDA_VISUAL
+# Numero de onda (rad/m)
+K_1 = 2 * np.pi / LAMBDA_1
 
 
 # ==========================================
@@ -28,8 +22,7 @@ K_1 = 2 * np.pi / LAMBDA_VISUAL
 # ==========================================
 
 def onda_incidente(x, t):
-#Esa amplitud es para mantener una escala visual
-    amplitud = 50 
+    amplitud = 50
     fase = 0
 
     return amplitud * np.sin(
@@ -37,7 +30,6 @@ def onda_incidente(x, t):
         - OMEGA_1 * t
         + fase
     )
-
 
 
 # ==========================================
@@ -48,11 +40,11 @@ def onda_incidente(x, t):
 def onda_material(x, t, material):
 
     # En un medio:
-    # λ₂ = λ₁ / n
+    # lambda_2 = lambda_1 / n
 
-    lambda_2 = LAMBDA_VISUAL / material.n
+    lambda_2 = LAMBDA_1 / material.n
 
-    # k₂ = 2π / λ₂
+    # k2 = 2pi / lambda_2
 
     k_2 = 2 * np.pi / lambda_2
 
@@ -67,7 +59,7 @@ def onda_material(x, t, material):
 
 
 # ==========================================
-# SUPERPOSICIÓN
+# SUPERPOSICION
 # r(x,t)=f(x,t)+g(x,t)
 # ==========================================
 
@@ -80,77 +72,83 @@ def onda_resultante(x, t, material):
 
 
 # ==========================================
-# CAMPO ELÉCTRICO INCIDENTE 
+# CAMPO ELECTRICO INCIDENTE
 # ==========================================
-def campo_electrico_incidente(x, t):
-    # E0 es la amplitud máxima del campo eléctrico
-    E0 = 50 
-    fase_inicial = 0  # phi_E para la onda incidente
 
-    # de propagación hacia la derecha (+x) 
+def campo_electrico_incidente(x, t):
+    # E0 es la amplitud maxima del campo electrico
+    E0 = 50
+    fase_inicial = 0
+
+    # de propagacion hacia la derecha (+x)
     return E0 * np.cos(K_1 * x - OMEGA_1 * t + fase_inicial)
 
 
 # ==========================================
-# CAMPO ELÉCTRICO EN EL MATERIAL
+# CAMPO ELECTRICO EN EL MATERIAL
 # ==========================================
+
 def campo_electrico_material(x, t, material):
-    lambda_2 = LAMBDA_VISUAL / material.n
+    lambda_2 = LAMBDA_1 / material.n
     k_2 = 2 * np.pi / lambda_2
     omega_2 = OMEGA_1
 
-    # material.A2 actúa como el E0_2 (amplitud en el medio)
-    # material.phi2 es el phi_E de la fórmula 
+    # material.A2 actua como el E0_2 (amplitud en el medio)
+    # material.phi2 es el phi_E de la formula
     return material.A2 * np.cos(k_2 * x - omega_2 * t + material.phi2)
 
 
 # ==========================================
-# CAMPO ELÉCTRICO RESULTANTE (Superposición)
+# CAMPO ELECTRICO RESULTANTE (Superposicion)
 # ==========================================
+
 def campo_electrico_resultante(x, t, material):
-    # El principio de superposición aplica exactamente igual para los campos
+    # El principio de superposicion aplica exactamente igual para los campos
     return (
-        campo_electrico_incidente(x, t) 
+        campo_electrico_incidente(x, t)
         + campo_electrico_material(x, t, material)
     )
 
 
 # ==========================================
-# CAMPO MAGNÉTICO INCIDENTE
+# CAMPO MAGNETICO INCIDENTE
 # ==========================================
+
 def campo_magnetico_incidente(x, t):
-    E0 = 50  # Amplitud del campo eléctrico incidente
+    E0 = 50  # Amplitud del campo electrico incidente
     fase_inicial = 0
-    
-    # En el vacío, la velocidad de la onda es C
-    B0 = E0 / C  
-    
+
+    # En el vacio, la velocidad de la onda es C
+    B0 = E0 / C
+
     return B0 * np.cos(K_1 * x - OMEGA_1 * t + fase_inicial)
 
 
 # ==========================================
-# CAMPO MAGNÉTICO EN EL MATERIAL
+# CAMPO MAGNETICO EN EL MATERIAL
 # ==========================================
+
 def campo_magnetico_material(x, t, material):
-    lambda_2 = LAMBDA_VISUAL / material.n
+    lambda_2 = LAMBDA_1 / material.n
     k_2 = 2 * np.pi / lambda_2
     omega_2 = OMEGA_1
-    
-    #  En el material la velocidad de la luz disminuye: v = C / n
+
+    # En el material la velocidad de la luz disminuye: v = C / n
     velocidad_material = C / material.n
-    
-    # Usamos la amplitud eléctrica del material (material.A2) 
+
+    # Usamos la amplitud electrica del material (material.A2)
     # dividida entre la nueva velocidad
     B0_material = material.A2 / velocidad_material
-    
+
     return B0_material * np.cos(k_2 * x - omega_2 * t + material.phi2)
 
 
 # ==========================================
-# CAMPO MAGNÉTICO RESULTANTE
+# CAMPO MAGNETICO RESULTANTE
 # ==========================================
+
 def campo_magnetico_resultante(x, t, material):
     return (
-        campo_magnetico_incidente(x, t) 
+        campo_magnetico_incidente(x, t)
         + campo_magnetico_material(x, t, material)
     )

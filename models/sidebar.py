@@ -1,9 +1,9 @@
 import numpy as np
 
-from physics.waves import (
+from physics.waves_no_scale import (
     C,
     K_1,
-    LAMBDA_VISUAL,
+    LAMBDA_1,
     OMEGA_1,
     campo_electrico_material,
     campo_electrico_incidente,
@@ -105,7 +105,7 @@ class CalculationSidebar(Panel):
         x = self.wave_canvas.sample_x()
         t = self.wave_canvas.t
 
-        lambda_2 = LAMBDA_VISUAL / self.material.n
+        lambda_2 = LAMBDA_1 / self.material.n
         k_2 = 2 * np.pi / lambda_2
 
         f_inc = onda_incidente(x, t)

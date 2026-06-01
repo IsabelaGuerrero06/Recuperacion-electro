@@ -184,25 +184,6 @@ class WaveCanvas(QWidget):
         painter.setPen(
             QColor("white")
         )
-
-        painter.drawText(
-            20,
-            30,
-            f"Tiempo: {self.t:.2e} s"
-        )
-
-        painter.drawText(
-            20,
-            50,
-            f"dx: {self.dx:.2e} m/pixel"
-        )
-
-        painter.drawText(
-            20,
-            70,
-            f"Escala tiempo: {self.time_scale:.0f}x"
-        )
-
         painter.drawText(
             20,
             90,
@@ -211,28 +192,6 @@ class WaveCanvas(QWidget):
 
         muestra_x = (material_x + 100) * self.dx
 
-        f = onda_incidente(
-            muestra_x,
-            self.t
-        )
-
-        r = onda_resultante(
-            muestra_x,
-            self.t,
-            self.material
-        )
-
-        painter.drawText(
-            20,
-            110,
-            f"Incidente = {f:.2f}"
-        )
-
-        painter.drawText(
-            20,
-            130,
-            f"Resultante = {r:.2f}"
-        )
 
     def sample_x(self):
         width = self.width()
