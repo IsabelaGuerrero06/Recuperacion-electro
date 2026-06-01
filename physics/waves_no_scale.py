@@ -1,154 +1,118 @@
 import numpy as np
 
-# Velocidad de la luz en el vacio (m/s)
+# ============================================================
+# WAVES_NO_SCALE — Versión sin escala visual
+# Modelo de Lorentz usando λ₁ real (500 nm) sin LAMBDA_ESCALA.
+# Se usa en el sidebar de cálculos.
+# ============================================================
+
+# Velocidad de la luz en el vacío (m/s)
 C = 3e8
 
-# Longitud de onda incidente (m)
-LAMBDA_1 = 500e-9  # 500 nm (verde)
+# Amplitud máxima del campo eléctrico incidente (unidades visuales)
+E0 = 50.0
+
+# Longitud de onda incidente REAL (m)
+LAMBDA_1 = 500e-9          # 500 nm — luz verde
 
 # Frecuencia (Hz)
 F_1 = C / LAMBDA_1
 
-# Frecuencia angular (rad/s)
+# Frecuencia angular de la luz  ωl  (rad/s)
 OMEGA_1 = 2 * np.pi * F_1
 
-# Numero de onda (rad/m)
+# Número de onda  k = 2π/λ  (rad/m)
 K_1 = 2 * np.pi / LAMBDA_1
 
 
-# ==========================================
+# ============================================================
+# AMPLITUD DE OSCILACIÓN DEL ELECTRÓN (sin escala visual)
+# ============================================================
+
+def amplitud_oscilacion_real(atomo):
+    """
+    A_x = q·E0 / (m·(ωr² − ωl²))   — valor físico real.
+    """
+    denominador = atomo.m * (atomo.omega_r**2 - OMEGA_1**2)
+    if abs(denominador) < 1e-40:
+        denominador = 1e-40
+    return (atomo.q * E0) / denominador
+
+
+# ============================================================
 # ONDA INCIDENTE
-# f(x,t)=A·sin(kx−ωt+φ)
-# ==========================================
+# ============================================================
 
 def onda_incidente(x, t):
-    amplitud = 50
-    fase = 0
-
-    return amplitud * np.sin(
-        K_1 * x
-        - OMEGA_1 * t
-        + fase
-    )
+    """f(x,t) = 50·sin(k·x − ωl·t)"""
+    return 50.0 * np.sin(K_1 * x - OMEGA_1 * t)
 
 
-# ==========================================
-# ONDA GENERADA EN EL MATERIAL
-# g(x,t)=A2·sin(k2x−ω2t+φ2)
-# ==========================================
+# ============================================================
+# ONDA EMITIDA (Lorentz)
+# ============================================================
 
-def onda_material(x, t, material):
-
-    # En un medio:
-    # lambda_2 = lambda_1 / n
-
-    lambda_2 = LAMBDA_1 / material.n
-
-    # k2 = 2pi / lambda_2
-
-    k_2 = 2 * np.pi / lambda_2
-
-    # La frecuencia NO cambia al entrar al medio
-    omega_2 = OMEGA_1
-
-    return material.A2 * np.sin(
-        k_2 * x
-        - omega_2 * t
-        + material.phi2
-    )
+def onda_emitida(x, t, atomo):
+    """g(x,t) = A_x·sin(k·x − ωl·t + φ)"""
+    A_x = amplitud_oscilacion_real(atomo)
+    return A_x * np.sin(K_1 * x - OMEGA_1 * t + atomo.phi)
 
 
-# ==========================================
-# SUPERPOSICION
-# r(x,t)=f(x,t)+g(x,t)
-# ==========================================
-
-def onda_resultante(x, t, material):
-
-    return (
-        onda_incidente(x, t)
-        + onda_material(x, t, material)
-    )
+# Alias para compatibilidad con el sidebar
+def onda_material(x, t, atomo):
+    return onda_emitida(x, t, atomo)
 
 
-# ==========================================
-# CAMPO ELECTRICO INCIDENTE
-# ==========================================
+# ============================================================
+# CAMPO ELÉCTRICO
+# ============================================================
 
 def campo_electrico_incidente(x, t):
-    # E0 es la amplitud maxima del campo electrico
-    E0 = 50
-    fase_inicial = 0
-
-    # de propagacion hacia la derecha (+x)
-    return E0 * np.cos(K_1 * x - OMEGA_1 * t + fase_inicial)
+    """E_inc(x,t) = E0·cos(k·x − ωl·t)"""
+    return E0 * np.cos(K_1 * x - OMEGA_1 * t)
 
 
-# ==========================================
-# CAMPO ELECTRICO EN EL MATERIAL
-# ==========================================
-
-def campo_electrico_material(x, t, material):
-    lambda_2 = LAMBDA_1 / material.n
-    k_2 = 2 * np.pi / lambda_2
-    omega_2 = OMEGA_1
-
-    # material.A2 actua como el E0_2 (amplitud en el medio)
-    # material.phi2 es el phi_E de la formula
-    return material.A2 * np.cos(k_2 * x - omega_2 * t + material.phi2)
+def campo_electrico_emitido(x, t, atomo):
+    """E_emit(x,t) = A_x·cos(k·x − ωl·t + φ)"""
+    A_x = amplitud_oscilacion_real(atomo)
+    return A_x * np.cos(K_1 * x - OMEGA_1 * t + atomo.phi)
 
 
-# ==========================================
-# CAMPO ELECTRICO RESULTANTE (Superposicion)
-# ==========================================
+def campo_electrico_material(x, t, atomo):
+    return campo_electrico_emitido(x, t, atomo)
 
-def campo_electrico_resultante(x, t, material):
-    # El principio de superposicion aplica exactamente igual para los campos
+
+def campo_electrico_resultante(x, t, atomo):
+    """E_res = E_inc + E_emit"""
     return (
         campo_electrico_incidente(x, t)
-        + campo_electrico_material(x, t, material)
+        + campo_electrico_emitido(x, t, atomo)
     )
 
 
-# ==========================================
-# CAMPO MAGNETICO INCIDENTE
-# ==========================================
+# ============================================================
+# CAMPO MAGNÉTICO
+# ============================================================
 
 def campo_magnetico_incidente(x, t):
-    E0 = 50  # Amplitud del campo electrico incidente
-    fase_inicial = 0
-
-    # En el vacio, la velocidad de la onda es C
+    """B_inc(x,t) = (E0/c)·cos(k·x − ωl·t)"""
     B0 = E0 / C
-
-    return B0 * np.cos(K_1 * x - OMEGA_1 * t + fase_inicial)
-
-
-# ==========================================
-# CAMPO MAGNETICO EN EL MATERIAL
-# ==========================================
-
-def campo_magnetico_material(x, t, material):
-    lambda_2 = LAMBDA_1 / material.n
-    k_2 = 2 * np.pi / lambda_2
-    omega_2 = OMEGA_1
-
-    # En el material la velocidad de la luz disminuye: v = C / n
-    velocidad_material = C / material.n
-
-    # Usamos la amplitud electrica del material (material.A2)
-    # dividida entre la nueva velocidad
-    B0_material = material.A2 / velocidad_material
-
-    return B0_material * np.cos(k_2 * x - omega_2 * t + material.phi2)
+    return B0 * np.cos(K_1 * x - OMEGA_1 * t)
 
 
-# ==========================================
-# CAMPO MAGNETICO RESULTANTE
-# ==========================================
+def campo_magnetico_emitido(x, t, atomo):
+    """B_emit(x,t) = (A_x/c)·cos(k·x − ωl·t + φ)"""
+    A_x = amplitud_oscilacion_real(atomo)
+    return (A_x / C) * np.cos(K_1 * x - OMEGA_1 * t + atomo.phi)
 
-def campo_magnetico_resultante(x, t, material):
+
+def campo_magnetico_material(x, t, atomo):
+    return campo_magnetico_emitido(x, t, atomo)
+
+
+def campo_magnetico_resultante(x, t, atomo):
+    """B_res = B_inc + B_emit"""
     return (
         campo_magnetico_incidente(x, t)
-        + campo_magnetico_material(x, t, material)
+        + campo_magnetico_emitido(x, t, atomo)
     )
