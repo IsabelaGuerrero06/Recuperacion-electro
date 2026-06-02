@@ -20,3 +20,4 @@ class Panel(QFrame):
                 border-radius: 5px;
             }
         """)
+   
