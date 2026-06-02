@@ -22,6 +22,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QFrame,
     QLabel, QScrollArea,
+    QComboBox,
 )
 
 from models.panel import Panel
@@ -34,11 +35,13 @@ class CalculationSidebar(Panel):
     El electrón animado SOLO existe aquí.
     """
 
-    def __init__(self, wave_canvas, atomo):
+    def __init__(self, wave_canvas, atomo, on_wave_mode_change=None):
         super().__init__()
 
         self.wave_canvas = wave_canvas
         self.atomo       = atomo
+        self.on_wave_mode_change = on_wave_mode_change
+        self.wave_mode = "incidente_resultante"
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -49,6 +52,18 @@ class CalculationSidebar(Panel):
             "color: #ffffff; font-weight: bold; font-size: 13px;"
         )
         layout.addWidget(title)
+
+        selector_label = QLabel("Tipo de onda")
+        selector_label.setStyleSheet("color: #cfcfcf; font-size: 11px;")
+        layout.addWidget(selector_label)
+
+        self.wave_selector = QComboBox()
+        self.wave_selector.addItem("Incidente + resultante", "incidente_resultante")
+        self.wave_selector.addItem("Emitida (átomo)", "emitida")
+        self.wave_selector.addItem("Solo resultante", "resultante")
+        self.wave_selector.addItem("Solo incidente", "incidente")
+        self.wave_selector.currentIndexChanged.connect(self._on_wave_change)
+        layout.addWidget(self.wave_selector)
 
         # ── Widget animado (solo aquí) ────────────────────────
         self.electron_anim = ElectronAnimation(atomo)
@@ -115,6 +130,14 @@ class CalculationSidebar(Panel):
     def _fmt(self, value):
         return f"{value:.3e}"
 
+    def _on_wave_change(self):
+        mode = self.wave_selector.currentData()
+        if mode:
+            self.wave_mode = mode
+            if self.on_wave_mode_change is not None:
+                self.on_wave_mode_change(mode)
+            self.update_values()
+
     def update_values(self):
         x = self.wave_canvas.sample_x()
         t = self.wave_canvas.t
@@ -150,36 +173,97 @@ class CalculationSidebar(Panel):
             f"  x = {self._fmt(x)} m   t = {self._fmt(t)} s",
         ]))
 
+        if self.wave_mode == "incidente_resultante":
+            ondas_lineas = [
+                "f(x,t) = A1·sin(k·x − ωl·t)",
+                f"  f = {self._fmt(f_inc)}",
+                "g(x,t) = A_x·sin(k·x − ωl·t + φ)",
+                f"  g = {self._fmt(f_emit)}",
+                "r = f + g",
+                f"  r = {self._fmt(f_res)}",
+            ]
+        elif self.wave_mode == "emitida":
+            ondas_lineas = [
+                "g(x,t) = A_x·sin(k·x − ωl·t + φ)",
+                f"  g = {self._fmt(f_emit)}",
+            ]
+        elif self.wave_mode == "resultante":
+            ondas_lineas = [
+                "r = f + g",
+                f"  r = {self._fmt(f_res)}",
+            ]
+        else:
+            ondas_lineas = [
+                "f(x,t) = A1·sin(k·x − ωl·t)",
+                f"  f = {self._fmt(f_inc)}",
+            ]
+
         self.onda_label.setText("<br>".join([
             "<span style='color:#00ff88;font-weight:bold;'>Ondas</span>",
             "─────────────────────────────────────",
-            "f(x,t) = A1·sin(k·x − ωl·t)",
-            f"  f = {self._fmt(f_inc)}",
-            "g(x,t) = A_x·sin(k·x − ωl·t + φ)",
-            f"  g = {self._fmt(f_emit)}",
-            "r = f + g",
-            f"  r = {self._fmt(f_res)}",
+            *ondas_lineas,
         ]))
+
+        if self.wave_mode == "incidente_resultante":
+            e_lineas = [
+                "E_inc  = E0·cos(k·x − ωl·t)",
+                f"  E_inc  = {self._fmt(E_inc)} V/m",
+                "E_emit = A_x·cos(k·x − ωl·t + φ)",
+                f"  E_emit = {self._fmt(E_emit)} V/m",
+                f"  E_res  = {self._fmt(E_res)} V/m",
+            ]
+        elif self.wave_mode == "emitida":
+            e_lineas = [
+                "E_emit = A_x·cos(k·x − ωl·t + φ)",
+                f"  E_emit = {self._fmt(E_emit)} V/m",
+            ]
+        elif self.wave_mode == "resultante":
+            e_lineas = [
+                "E_res = E_inc + E_emit",
+                f"  E_res = {self._fmt(E_res)} V/m",
+            ]
+        else:
+            e_lineas = [
+                "E_inc = E0·cos(k·x − ωl·t)",
+                f"  E_inc = {self._fmt(E_inc)} V/m",
+            ]
 
         self.campo_e_label.setText("<br>".join([
             "<span style='color:#7ad1ff;font-weight:bold;'>Campo Eléctrico</span>",
             "─────────────────────────────────────",
-            "E_inc  = E0·cos(k·x − ωl·t)",
-            f"  E_inc  = {self._fmt(E_inc)} V/m",
-            "E_emit = A_x·cos(k·x − ωl·t + φ)",
-            f"  E_emit = {self._fmt(E_emit)} V/m",
-            f"  E_res  = {self._fmt(E_res)} V/m",
+            *e_lineas,
         ]))
 
         B0 = 50 / C
+        if self.wave_mode == "incidente_resultante":
+            b_lineas = [
+                "B_inc  = (E0/c)·cos(k·x − ωl·t)",
+                f"  B0 = {self._fmt(B0)} T",
+                f"  B_inc  = {self._fmt(B_inc)} T",
+                f"  B_emit = {self._fmt(B_emit)} T",
+                f"  B_res  = {self._fmt(B_res)} T",
+            ]
+        elif self.wave_mode == "emitida":
+            b_lineas = [
+                "B_emit = (A_x/c)·cos(k·x − ωl·t + φ)",
+                f"  B_emit = {self._fmt(B_emit)} T",
+            ]
+        elif self.wave_mode == "resultante":
+            b_lineas = [
+                "B_res = B_inc + B_emit",
+                f"  B_res = {self._fmt(B_res)} T",
+            ]
+        else:
+            b_lineas = [
+                "B_inc = (E0/c)·cos(k·x − ωl·t)",
+                f"  B0 = {self._fmt(B0)} T",
+                f"  B_inc = {self._fmt(B_inc)} T",
+            ]
+
         self.campo_b_label.setText("<br>".join([
             "<span style='color:#ff7aa2;font-weight:bold;'>Campo Magnético</span>",
             "─────────────────────────────────────",
-            "B_inc  = (E0/c)·cos(k·x − ωl·t)",
-            f"  B0 = {self._fmt(B0)} T",
-            f"  B_inc  = {self._fmt(B_inc)} T",
-            f"  B_emit = {self._fmt(B_emit)} T",
-            f"  B_res  = {self._fmt(B_res)} T",
+            *b_lineas,
         ]))
 
 

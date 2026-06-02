@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QWidget
 
 from physics.waves import (
     onda_incidente,
+    onda_emitida,
     onda_resultante,
     amplitud_oscilacion,
     _escalar_amplitud,
@@ -27,6 +28,8 @@ class WaveCanvas(QWidget):
     def __init__(self, atomo):
         super().__init__()
         self.atomo = atomo
+
+        self.wave_mode = "incidente_resultante"
 
         self.dx         = 50e-9
         self.dt         = 1e-18
@@ -59,6 +62,10 @@ class WaveCanvas(QWidget):
         self.t += self.dt * self.time_scale
         self.update()
 
+    def set_wave_mode(self, mode):
+        self.wave_mode = mode
+        self.update()
+
     def sample_x(self):
         width = self.width()
         if width <= 0:
@@ -81,32 +88,74 @@ class WaveCanvas(QWidget):
         painter.setPen(QPen(QColor("#404040"), 1))
         painter.drawLine(0, centro_y, width, centro_y)
 
-        # ── Onda incidente (izquierda) ───────────────────────
-        painter.setPen(QPen(QColor("#00ff88"), 3))
-        for x in range(atomo_cx - 1):
-            x1 = x       * self.dx
-            x2 = (x + 1) * self.dx
-            y1 = centro_y + onda_incidente(x1, self.t)
-            y2 = centro_y + onda_incidente(x2, self.t)
-            painter.drawLine(x, int(y1), x + 1, int(y2))
+        if self.wave_mode == "incidente_resultante":
+            # ── Onda incidente (izquierda) ───────────────────
+            painter.setPen(QPen(QColor("#00ff88"), 3))
+            for x in range(atomo_cx - 1):
+                x1 = x       * self.dx
+                x2 = (x + 1) * self.dx
+                y1 = centro_y + onda_incidente(x1, self.t)
+                y2 = centro_y + onda_incidente(x2, self.t)
+                painter.drawLine(x, int(y1), x + 1, int(y2))
 
-        # ── Onda resultante (derecha) ────────────────────────
-        painter.setPen(QPen(QColor("#cfe966"), 3))
-        for x in range(atomo_cx + 1, width):
-            x1 = x       * self.dx
-            x2 = (x + 1) * self.dx
-            y1 = centro_y + onda_resultante(x1, self.t, self.atomo)
-            y2 = centro_y + onda_resultante(x2, self.t, self.atomo)
-            painter.drawLine(x, int(y1), x + 1, int(y2))
+            # ── Onda resultante (derecha) ────────────────────
+            painter.setPen(QPen(QColor("#cfe966"), 3))
+            for x in range(atomo_cx + 1, width):
+                x1 = x       * self.dx
+                x2 = (x + 1) * self.dx
+                y1 = centro_y + onda_resultante(x1, self.t, self.atomo)
+                y2 = centro_y + onda_resultante(x2, self.t, self.atomo)
+                painter.drawLine(x, int(y1), x + 1, int(y2))
+        else:
+            # Unica onda en todo el ancho del panel.
+            if self.wave_mode == "emitida":
+                color = QColor("#ffcc66")
+                def wave_fn(x, t):
+                    return onda_emitida(abs(x), t, self.atomo)
+            elif self.wave_mode == "resultante":
+                color = QColor("#cfe966")
+                wave_fn = lambda x, t: onda_resultante(x, t, self.atomo)
+            else:
+                color = QColor("#00ff88")
+                wave_fn = onda_incidente
+
+            painter.setPen(QPen(color, 3))
+            if self.wave_mode == "resultante":
+                start_x = atomo_cx + 1
+                end_x = width
+            else:
+                start_x = 0
+                end_x = width - 1
+
+            for x in range(start_x, end_x):
+                if self.wave_mode == "emitida":
+                    x1 = (x - atomo_cx) * self.dx
+                    x2 = (x + 1 - atomo_cx) * self.dx
+                else:
+                    x1 = x       * self.dx
+                    x2 = (x + 1) * self.dx
+                y1 = centro_y + wave_fn(x1, self.t)
+                y2 = centro_y + wave_fn(x2, self.t)
+                painter.drawLine(x, int(y1), x + 1, int(y2))
 
         # ── Átomo estático ───────────────────────────────────
         _dibujar_atomo_estatico(painter, atomo_cx, centro_y, self.atomo.nombre)
 
         # ── Leyenda ──────────────────────────────────────────
-        painter.setPen(QColor("#00ff88"))
-        painter.drawText(20, 20, "── Onda incidente")
-        painter.setPen(QColor("#cfe966"))
-        painter.drawText(20, 38, "── Onda resultante")
+        if self.wave_mode == "incidente_resultante":
+            painter.setPen(QColor("#00ff88"))
+            painter.drawText(20, 20, "── Onda incidente")
+            painter.setPen(QColor("#cfe966"))
+            painter.drawText(20, 38, "── Onda resultante")
+        elif self.wave_mode == "emitida":
+            painter.setPen(QColor("#ffcc66"))
+            painter.drawText(20, 20, "── Onda emitida")
+        elif self.wave_mode == "resultante":
+            painter.setPen(QColor("#cfe966"))
+            painter.drawText(20, 20, "── Onda resultante")
+        else:
+            painter.setPen(QColor("#00ff88"))
+            painter.drawText(20, 20, "── Onda incidente")
         painter.setPen(QColor("#aaaaaa"))
         A_vis = _escalar_amplitud(amplitud_oscilacion(self.atomo))
         painter.drawText(20, 56, f"Átomo: {self.atomo.nombre}  |  A_x = {A_vis:.1f} px")

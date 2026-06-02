@@ -55,8 +55,10 @@ from ui.field_canvas import FieldCanvas
 from physics.atomo import Atomo
 from physics.waves import (
     campo_electrico_incidente,
+    campo_electrico_emitido,
     campo_electrico_resultante,
     campo_magnetico_incidente,
+    campo_magnetico_emitido,
     campo_magnetico_resultante,
 )
 from models.sidebar import CalculationSidebar
@@ -73,6 +75,10 @@ def B_incidente_visual(x, t):
 
 def B_resultante_visual(x, t, atomo):
     return campo_magnetico_resultante(x, t, atomo) * 3e8
+
+
+def B_emitida_visual(x, t, atomo):
+    return campo_magnetico_emitido(x, t, atomo) * 3e8
 
 
 # ================================================================
@@ -156,6 +162,7 @@ class Simulador(QWidget):
             atomo=hidrogeno,
             incidente_func=campo_electrico_incidente,
             resultante_func=campo_electrico_resultante,
+            emitida_func=campo_electrico_emitido,
             color="#00bfff",
             titulo="Campo Eléctrico  E(x,t)"
         )
@@ -164,16 +171,27 @@ class Simulador(QWidget):
             atomo=hidrogeno,
             incidente_func=B_incidente_visual,
             resultante_func=B_resultante_visual,
+            emitida_func=B_emitida_visual,
             color="#ff4477",
             titulo="Campo Magnético  B(x,t)"
         )
 
-        self.sidebar = CalculationSidebar(simulacion, hidrogeno)
+        self.sidebar = CalculationSidebar(
+            simulacion,
+            hidrogeno,
+            on_wave_mode_change=self.set_wave_mode,
+        )
 
         self.simulaciones += [
             campo_electrico,
             campo_magnetico,
             self.sidebar,
+        ]
+
+        self.wave_targets = [
+            simulacion,
+            campo_electrico,
+            campo_magnetico,
         ]
 
         right_layout.addWidget(campo_electrico, 3)
@@ -207,6 +225,10 @@ class Simulador(QWidget):
         self.toggle_sidebar_btn.setText(
             "Mostrar cálculos" if visible else "Ocultar cálculos"
         )
+
+    def set_wave_mode(self, mode):
+        for target in self.wave_targets:
+            target.set_wave_mode(mode)
 
 
 # ================================================================
