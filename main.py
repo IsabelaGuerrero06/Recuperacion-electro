@@ -121,7 +121,7 @@ class Simulador(QWidget):
             constante_elastica=0.8e-18,  # N/m  (ligadura)
             fase=np.pi / 4           # desfase φ (rad)
         )
-
+  
         # ── PANEL IZQUIERDO ──────────────────────────────────
 
         left_layout = QVBoxLayout()
