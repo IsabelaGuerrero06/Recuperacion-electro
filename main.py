@@ -29,13 +29,11 @@ Onda emitida por el átomo:
 Onda resultante (superposición):
     r(x,t) = f(x,t) + g(x,t)
 
-Campo eléctrico resultante:
-    E_res = E_inc + E_emit
-
-Campo magnético (onda plana en vacío: B = E/c):
-    B_inc  = (E0/c)·cos(k·x − ωl·t)
-    B_emit = (A_x/c)·cos(k·x − ωl·t + φ)
-    B_res  = B_inc + B_emit
+Visualización multicapa (modo incidente_resultante):
+    Se distribuyen N átomos equiespaciados.
+    Cada segmento [xᵢ, xᵢ₊₁] dibuja:
+        r_local(x,t) = f(x,t) + A_x·sin(k·x − ωl·t + φ + k·xᵢ)
+    produciendo el desfase acumulado capa a capa.
 """
 
 import sys
@@ -48,7 +46,10 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSlider,
+    QSpinBox,
 )
+from PyQt6.QtCore import Qt
 
 from ui.wave_canvas import WaveCanvas
 from ui.field_canvas import FieldCanvas
@@ -66,8 +67,6 @@ from models.panel import Panel
 
 
 # ── Adaptador de campo magnético para escala visual ──────────────
-# B es ~1e-8 T (muy pequeño). Multiplicamos por c para que sea
-# visible en el canvas (misma escala que E, en unidades visuales).
 
 def B_incidente_visual(x, t):
     return campo_magnetico_incidente(x, t) * 3e8
@@ -88,11 +87,10 @@ def B_emitida_visual(x, t, atomo):
 class Simulador(QWidget):
 
     def __init__(self):
-
         super().__init__()
 
         self.setWindowTitle(
-            "Simulador Radiación–Materia  |  Modelo de Lorentz"
+            "Simulador Radiación–Materia  |  Modelo de Lorentz  |  N capas"
         )
         self.resize(1400, 800)
 
@@ -105,37 +103,28 @@ class Simulador(QWidget):
         main_layout = QHBoxLayout(self)
 
         # ── Átomo de Lorentz ─────────────────────────────────
-        #
-        # Parámetros elegidos para que ωl ≠ ωr (sin resonancia)
-        # y A_x sea visible en pantalla.
-        #
-        # ωl = 2π·c/λ_visual = 2π·(3e8)/(5e-6) ≈ 3.77e14 rad/s
-        # ωr = √(k/m) = √(0.8e-18 / 9.1e-31) ≈ 2.96e6 rad/s
-        #
-        # Nota: en el simulador λ_visual = λ_1 × 10 para visualización.
-
         hidrogeno = Atomo(
             nombre="Hidrógeno",
-            masa=9.1e-31,            # masa del electrón (kg)
-            carga=1.6e-19,           # carga del electrón (C)
-            constante_elastica=0.8e-18,  # N/m  (ligadura)
-            fase=np.pi / 4           # desfase φ (rad)
+            masa=9.1e-31,
+            carga=1.6e-19,
+            constante_elastica=0.8e-18,
+            fase=np.pi / 4
         )
-  
+
         # ── PANEL IZQUIERDO ──────────────────────────────────
 
         left_layout = QVBoxLayout()
 
-        simulacion = WaveCanvas(hidrogeno)
+        simulacion = WaveCanvas(hidrogeno, n_atomos=1)
 
         self.simulaciones = [simulacion]
         self.is_paused = False
 
-        # Controles
+        # ── Controles ────────────────────────────────────────
         controles = Panel()
         controles_layout = QVBoxLayout(controles)
         controles_layout.setContentsMargins(12, 12, 12, 12)
-        controles_layout.setSpacing(10)
+        controles_layout.setSpacing(8)
 
         self.estado_simulacion = QLabel("Simulación: Activa")
         self.estado_simulacion.setStyleSheet("color: #e0e0e0;")
@@ -146,9 +135,118 @@ class Simulador(QWidget):
         self.toggle_btn.clicked.connect(self.toggle_simulacion)
         self.toggle_sidebar_btn.clicked.connect(self.toggle_sidebar)
 
+        # ── Control N átomos ─────────────────────────────────
+        n_label_row = QHBoxLayout()
+        n_label = QLabel("Número de capas (N):")
+        n_label.setStyleSheet("color: #cfcfcf; font-size: 11px;")
+        self.n_value_label = QLabel("1")
+        self.n_value_label.setStyleSheet(
+            "color: #ffd166; font-size: 12px; font-weight: bold;"
+        )
+        n_label_row.addWidget(n_label)
+        n_label_row.addStretch()
+        n_label_row.addWidget(self.n_value_label)
+
+        self.n_slider = QSlider(Qt.Orientation.Horizontal)
+        self.n_slider.setMinimum(1)
+        self.n_slider.setMaximum(50)
+        self.n_slider.setValue(1)
+        self.n_slider.setTickInterval(5)
+        self.n_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.n_slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                background: #333;
+                height: 6px;
+                border-radius: 3px;
+            }
+            QSlider::handle:horizontal {
+                background: #ffd166;
+                border: 1px solid #cc9900;
+                width: 14px;
+                height: 14px;
+                margin: -4px 0;
+                border-radius: 7px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #ffd16688;
+                border-radius: 3px;
+            }
+        """)
+        self.n_slider.valueChanged.connect(self._on_n_changed)
+
+        # Fila de accesos rápidos (N = 1 / 5 / 10 / 20 / 50)
+        preset_row = QHBoxLayout()
+        preset_row.setSpacing(4)
+        for val in [1, 5, 10, 20, 50]:
+            btn = QPushButton(str(val))
+            btn.setFixedWidth(38)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background: #2a2a2a;
+                    color: #aaaaaa;
+                    border: 1px solid #555;
+                    border-radius: 4px;
+                    padding: 2px;
+                    font-size: 10px;
+                }
+                QPushButton:hover {
+                    background: #3a3a3a;
+                    color: #ffd166;
+                    border-color: #ffd166;
+                }
+            """)
+            btn.clicked.connect(lambda checked, v=val: self._set_n(v))
+            preset_row.addWidget(btn)
+        preset_row.addStretch()
+
+        # ── Control phase_kick ────────────────────────────────
+        pk_label_row = QHBoxLayout()
+        pk_label = QLabel("Phase kick por capa:")
+        pk_label.setStyleSheet("color: #cfcfcf; font-size: 11px;")
+        self.pk_value_label = QLabel("0.80 rad")
+        self.pk_value_label.setStyleSheet(
+            "color: #ff6666; font-size: 12px; font-weight: bold;"
+        )
+        pk_label_row.addWidget(pk_label)
+        pk_label_row.addStretch()
+        pk_label_row.addWidget(self.pk_value_label)
+
+        # Slider de 0 a 3.14 rad, resolución 0.01 → int * 0.01
+        self.pk_slider = QSlider(Qt.Orientation.Horizontal)
+        self.pk_slider.setMinimum(0)
+        self.pk_slider.setMaximum(314)   # 0.00 … 3.14 rad
+        self.pk_slider.setValue(80)      # 0.80 rad por defecto
+        self.pk_slider.setTickInterval(31)
+        self.pk_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.pk_slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                background: #333;
+                height: 6px;
+                border-radius: 3px;
+            }
+            QSlider::handle:horizontal {
+                background: #ff6666;
+                border: 1px solid #cc2222;
+                width: 14px;
+                height: 14px;
+                margin: -4px 0;
+                border-radius: 7px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #ff666688;
+                border-radius: 3px;
+            }
+        """)
+        self.pk_slider.valueChanged.connect(self._on_pk_changed)
+
         controles_layout.addWidget(self.estado_simulacion)
         controles_layout.addWidget(self.toggle_btn)
         controles_layout.addWidget(self.toggle_sidebar_btn)
+        controles_layout.addLayout(n_label_row)
+        controles_layout.addWidget(self.n_slider)
+        controles_layout.addLayout(preset_row)
+        controles_layout.addLayout(pk_label_row)
+        controles_layout.addWidget(self.pk_slider)
         controles_layout.addStretch(1)
 
         left_layout.addWidget(simulacion, 7)
@@ -194,6 +292,9 @@ class Simulador(QWidget):
             campo_magnetico,
         ]
 
+        # Guardar referencia al canvas principal para el slider N
+        self.simulacion_principal = simulacion
+
         right_layout.addWidget(campo_electrico, 3)
         right_layout.addWidget(campo_magnetico, 3)
         right_layout.addWidget(self.sidebar,    4)
@@ -202,6 +303,20 @@ class Simulador(QWidget):
 
         main_layout.addLayout(left_layout,  7)
         main_layout.addLayout(right_layout, 3)
+
+    # ── Control N átomos ─────────────────────────────────────
+
+    def _on_n_changed(self, value):
+        self.n_value_label.setText(str(value))
+        self.simulacion_principal.set_n_atomos(value)
+
+    def _set_n(self, value):
+        self.n_slider.setValue(value)
+
+    def _on_pk_changed(self, value):
+        rad = value / 100.0
+        self.pk_value_label.setText(f"{rad:.2f} rad")
+        self.simulacion_principal.set_phase_kick(rad)
 
     # ── Control de simulación ─────────────────────────────────
 
