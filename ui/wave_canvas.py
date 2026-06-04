@@ -277,7 +277,7 @@ class WaveCanvas(QWidget):
 
         if self.wave_mode == "phase_kick":
             painter.setPen(QColor("#ffdd00"))
-            painter.drawText(20, 20, "── Phase kick  (estilo 3B1B)")
+            painter.drawText(20, 20, "── Phase kick")
             painter.setPen(QColor("#ff6666"))
             painter.drawText(20, 38, f"Phase kick = {self.phase_kick:.2f} rad")
             painter.setPen(QColor("#aaaaaa"))

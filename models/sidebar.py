@@ -62,7 +62,7 @@ class CalculationSidebar(Panel):
         self.wave_selector.addItem("Emitida (átomo)", "emitida")
         self.wave_selector.addItem("Solo resultante", "resultante")
         self.wave_selector.addItem("Solo incidente", "incidente")
-        self.wave_selector.addItem("Phase kick  (3B1B)", "phase_kick")
+        self.wave_selector.addItem("Phase kick", "phase_kick")
         self.wave_selector.currentIndexChanged.connect(self._on_wave_change)
         layout.addWidget(self.wave_selector)
 

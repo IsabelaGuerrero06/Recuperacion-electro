@@ -48,6 +48,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSlider,
     QSpinBox,
+    QFrame,
 )
 from PyQt6.QtCore import Qt
 
@@ -200,6 +201,12 @@ class Simulador(QWidget):
         preset_row.addStretch()
 
         # ── Control phase_kick ────────────────────────────────
+        # Contenedor para phase_kick (se ocultará cuando no esté en modo phase_kick)
+        self.pk_container = QWidget()
+        pk_container_layout = QVBoxLayout(self.pk_container)
+        pk_container_layout.setContentsMargins(0, 0, 0, 0)
+        pk_container_layout.setSpacing(6)
+
         pk_label_row = QHBoxLayout()
         pk_label = QLabel("Phase kick por capa:")
         pk_label.setStyleSheet("color: #cfcfcf; font-size: 11px;")
@@ -239,14 +246,19 @@ class Simulador(QWidget):
         """)
         self.pk_slider.valueChanged.connect(self._on_pk_changed)
 
+        pk_container_layout.addLayout(pk_label_row)
+        pk_container_layout.addWidget(self.pk_slider)
+        
+        # Por defecto, ocultado (solo se muestra en modo phase_kick)
+        self.pk_container.setVisible(False)
+
         controles_layout.addWidget(self.estado_simulacion)
         controles_layout.addWidget(self.toggle_btn)
         controles_layout.addWidget(self.toggle_sidebar_btn)
         controles_layout.addLayout(n_label_row)
         controles_layout.addWidget(self.n_slider)
         controles_layout.addLayout(preset_row)
-        controles_layout.addLayout(pk_label_row)
-        controles_layout.addWidget(self.pk_slider)
+        controles_layout.addWidget(self.pk_container)
         controles_layout.addStretch(1)
 
         left_layout.addWidget(simulacion, 7)
@@ -344,6 +356,8 @@ class Simulador(QWidget):
     def set_wave_mode(self, mode):
         for target in self.wave_targets:
             target.set_wave_mode(mode)
+        # Mostrar/ocultar slider de phase_kick según el modo
+        self.pk_container.setVisible(mode == "phase_kick")
 
 
 # ================================================================
