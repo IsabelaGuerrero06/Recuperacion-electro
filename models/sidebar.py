@@ -128,6 +128,19 @@ class CalculationSidebar(Panel):
         self.is_running = False
         self.electron_anim.pause()
 
+    def set_k(self, valor_k):
+        """Actualiza la constante elástica del átomo (N/m)."""
+        self.atomo.set_k(valor_k)
+        self.update_values()
+
+    def set_n_atomos(self, n):
+        """Placeholder para compatibilidad con otros canvas."""
+        pass
+
+    def set_phase_kick(self, value):
+        """Placeholder para compatibilidad con otros canvas."""
+        pass
+
     def _fmt(self, value):
         return f"{value:.3e}"
 

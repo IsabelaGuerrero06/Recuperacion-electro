@@ -150,9 +150,9 @@ class Simulador(QWidget):
 
         self.n_slider = QSlider(Qt.Orientation.Horizontal)
         self.n_slider.setMinimum(1)
-        self.n_slider.setMaximum(50)
+        self.n_slider.setMaximum(256)
         self.n_slider.setValue(1)
-        self.n_slider.setTickInterval(5)
+        self.n_slider.setTickInterval(25)
         self.n_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.n_slider.setStyleSheet("""
             QSlider::groove:horizontal {
@@ -175,10 +175,10 @@ class Simulador(QWidget):
         """)
         self.n_slider.valueChanged.connect(self._on_n_changed)
 
-        # Fila de accesos rápidos (N = 1 / 5 / 10 / 20 / 50)
+        # Fila de accesos rápidos (N = 1 / 10 / 50 / 100 / 256)
         preset_row = QHBoxLayout()
         preset_row.setSpacing(4)
-        for val in [1, 5, 10, 20, 50]:
+        for val in [1, 10, 50, 100, 256]:
             btn = QPushButton(str(val))
             btn.setFixedWidth(38)
             btn.setStyleSheet("""
@@ -210,7 +210,7 @@ class Simulador(QWidget):
         pk_label_row = QHBoxLayout()
         pk_label = QLabel("Phase kick por capa:")
         pk_label.setStyleSheet("color: #cfcfcf; font-size: 11px;")
-        self.pk_value_label = QLabel("0.80 rad")
+        self.pk_value_label = QLabel("0.00 rad")
         self.pk_value_label.setStyleSheet(
             "color: #ff6666; font-size: 12px; font-weight: bold;"
         )
@@ -221,8 +221,8 @@ class Simulador(QWidget):
         # Slider de 0 a 3.14 rad, resolución 0.01 → int * 0.01
         self.pk_slider = QSlider(Qt.Orientation.Horizontal)
         self.pk_slider.setMinimum(0)
-        self.pk_slider.setMaximum(314)   # 0.00 … 3.14 rad
-        self.pk_slider.setValue(80)      # 0.80 rad por defecto
+        self.pk_slider.setMaximum(70)   # 0.00 … 3.14 rad
+        self.pk_slider.setValue(0)      # 0.80 rad por defecto
         self.pk_slider.setTickInterval(31)
         self.pk_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.pk_slider.setStyleSheet("""
@@ -252,12 +252,54 @@ class Simulador(QWidget):
         # Por defecto, ocultado (solo se muestra en modo phase_kick)
         self.pk_container.setVisible(False)
 
+        # ── Control constante elástica K ─────────────────────────
+        k_label_row = QHBoxLayout()
+        k_label = QLabel("Constante K (×10⁻¹⁸ N/m):")
+        k_label.setStyleSheet("color: #cfcfcf; font-size: 11px;")
+        self.k_value_label = QLabel("0.80")
+        self.k_value_label.setStyleSheet(
+            "color: #66ff66; font-size: 12px; font-weight: bold;"
+        )
+        k_label_row.addWidget(k_label)
+        k_label_row.addStretch()
+        k_label_row.addWidget(self.k_value_label)
+
+        # Slider K: de 0.1 a 5.0 (×10⁻¹⁸ N/m), resolución 0.01
+        self.k_slider = QSlider(Qt.Orientation.Horizontal)
+        self.k_slider.setMinimum(10)    # 0.10 × 10⁻¹⁸
+        self.k_slider.setMaximum(500)   # 5.00 × 10⁻¹⁸
+        self.k_slider.setValue(80)      # 0.80 × 10⁻¹⁸ (valor por defecto del átomo)
+        self.k_slider.setTickInterval(50)
+        self.k_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.k_slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                background: #333;
+                height: 6px;
+                border-radius: 3px;
+            }
+            QSlider::handle:horizontal {
+                background: #66ff66;
+                border: 1px solid #33cc33;
+                width: 14px;
+                height: 14px;
+                margin: -4px 0;
+                border-radius: 7px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #66ff6688;
+                border-radius: 3px;
+            }
+        """)
+        self.k_slider.valueChanged.connect(self._on_k_changed)
+
         controles_layout.addWidget(self.estado_simulacion)
         controles_layout.addWidget(self.toggle_btn)
         controles_layout.addWidget(self.toggle_sidebar_btn)
         controles_layout.addLayout(n_label_row)
         controles_layout.addWidget(self.n_slider)
         controles_layout.addLayout(preset_row)
+        controles_layout.addLayout(k_label_row)
+        controles_layout.addWidget(self.k_slider)
         controles_layout.addWidget(self.pk_container)
         controles_layout.addStretch(1)
 
@@ -324,6 +366,17 @@ class Simulador(QWidget):
 
     def _set_n(self, value):
         self.n_slider.setValue(value)
+
+    def _on_k_changed(self, value):
+        # valor en slider × 0.01 × 10⁻¹⁸ N/m
+        k_valor = (value / 100.0) * 1e-18
+        self.k_value_label.setText(f"{value/100.0:.2f}")
+        # Actualizar el átomo
+        self.simulacion_principal.atomo.set_k(k_valor)
+        # Forzar redraw de todos los canvas
+        for target in self.wave_targets:
+            target.update()
+        self.sidebar.update_values()
 
     def _on_pk_changed(self, value):
         rad = value / 100.0

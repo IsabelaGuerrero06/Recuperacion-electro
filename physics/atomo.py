@@ -59,6 +59,18 @@ class Atomo:
             self.k / self.m
         )
 
+    def set_k(self, constante_elastica):
+        """
+        Actualiza la constante elástica y recalcula la frecuencia de resonancia.
+        
+        Parámetros
+        ----------
+        constante_elastica : float
+            Nueva constante elástica (N/m)
+        """
+        self.k = constante_elastica
+        self.omega_r = np.sqrt(self.k / self.m)
+
     def __repr__(self):
         return (
             f"Atomo(nombre={self.nombre!r}, "

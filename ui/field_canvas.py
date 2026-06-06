@@ -61,6 +61,19 @@ class FieldCanvas(QWidget):
         self.wave_mode = mode
         self.update()
 
+    def set_k(self, valor_k):
+        """Actualiza la constante elástica del átomo (N/m)."""
+        self.atomo.set_k(valor_k)
+        self.update()
+
+    def set_n_atomos(self, n):
+        """Placeholder para compatibilidad con otros canvas."""
+        pass
+
+    def set_phase_kick(self, value):
+        """Placeholder para compatibilidad con otros canvas."""
+        pass
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)

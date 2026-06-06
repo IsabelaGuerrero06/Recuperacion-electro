@@ -70,6 +70,11 @@ class WaveCanvas(QWidget):
         self.phase_kick = float(value)
         self.update()
 
+    def set_k(self, valor_k):
+        """Actualiza la constante elástica del átomo (N/m)."""
+        self.atomo.set_k(valor_k)
+        self.update()
+
     def start(self):
         if not self.timer.isActive():
             self.timer.start(16)
