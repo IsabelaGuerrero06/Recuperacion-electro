@@ -14,6 +14,7 @@ from PyQt6.QtCore import Qt
 
 from ui.wave_canvas import WaveCanvas
 from ui.field_canvas import FieldCanvas
+from models.reloj import RelojGlobal
 from physics.atomo import Atomo
 from physics.waves import (
     campo_electrico_incidente, campo_electrico_emitido, campo_electrico_resultante,
@@ -86,7 +87,10 @@ class Simulador(QWidget):
 
         # ── PANEL IZQUIERDO ──────────────────────────────────
         left_layout = QVBoxLayout()
-        simulacion = WaveCanvas(hidrogeno, n_atomos=1)
+        # ── Reloj global compartido ───────────────────────────
+        self.reloj = RelojGlobal(dt=1e-18, time_scale=200.0, fps=16)
+
+        simulacion = WaveCanvas(hidrogeno, reloj=self.reloj, n_atomos=1)
         self.simulaciones = [simulacion]
         self.is_paused = False
 
@@ -207,6 +211,7 @@ class Simulador(QWidget):
 
         campo_electrico = FieldCanvas(
             atomo=hidrogeno,
+            reloj=self.reloj,
             incidente_func=campo_electrico_incidente,
             resultante_func=campo_electrico_resultante,
             emitida_func=campo_electrico_emitido,
@@ -215,6 +220,7 @@ class Simulador(QWidget):
         )
         campo_magnetico = FieldCanvas(
             atomo=hidrogeno,
+            reloj=self.reloj,
             incidente_func=B_incidente_visual,
             resultante_func=B_resultante_visual,
             emitida_func=B_emitida_visual,
@@ -282,14 +288,14 @@ class Simulador(QWidget):
 
     def toggle_simulacion(self):
         if self.is_paused:
-            for s in self.simulaciones:
-                s.start()
+            self.reloj.start()
+            self.sidebar.start()
             self.estado_simulacion.setText("Simulación: Activa")
             self.toggle_btn.setText("Pausar")
             self.is_paused = False
         else:
-            for s in self.simulaciones:
-                s.pause()
+            self.reloj.pause()
+            self.sidebar.pause()
             self.estado_simulacion.setText("Simulación: Pausada")
             self.toggle_btn.setText("Reanudar")
             self.is_paused = True
