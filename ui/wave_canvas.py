@@ -17,37 +17,31 @@ from physics.waves import (
     OMEGA_L,
 )
 
-# Amplitud visual fija de la onda (misma que onda_incidente usa: 50 px)
 A1 = 50.0
+
+# Tolerancia para detectar resonancia: |ωr - ωl| / ωl < UMBRAL_RESONANCIA
+UMBRAL_RESONANCIA = 0.01
+
+
+def _en_resonancia(atomo):
+    """
+    Retorna True si el átomo está suficientemente cerca de la resonancia.
+        |ωr − ωl| / ωl < UMBRAL_RESONANCIA
+    """
+    return abs(atomo.omega_r - OMEGA_L) / OMEGA_L < UMBRAL_RESONANCIA
 
 
 def _onda_phase_kick(x, t, phase_acum):
-    """
-    Onda incidente con desfase acumulado.
-    Misma amplitud y frecuencia — solo la fase cambia.
-        f(x,t) = A1 · sin(k·x − ωl·t + φ_acum)
-    """
     return A1 * np.sin(K_1 * x - OMEGA_L * t + phase_acum)
 
 
 class WaveCanvas(QWidget):
-    """
-    Panel principal de ondas.
-
-    Modos:
-      incidente_resultante  — original: incidente izq / resultante der
-      emitida               — onda emitida por el átomo
-      resultante            — solo onda resultante
-      incidente             — solo onda incidente
-      phase_kick            — NUEVO: onda incidente con desfase
-                              acumulado segmento a segmento (estilo 3B1B)
-    """
 
     def __init__(self, atomo, n_atomos=1):
         super().__init__()
-        self.atomo     = atomo
-        self.n_atomos  = n_atomos
-        self.phase_kick = 0.8          # desfase por capa (rad), ajustable
+        self.atomo      = atomo
+        self.n_atomos   = n_atomos
+        self.phase_kick = 0.8
 
         self.wave_mode  = "incidente_resultante"
 
@@ -66,13 +60,7 @@ class WaveCanvas(QWidget):
         self.update()
 
     def set_phase_kick(self, value):
-        """value en radianes (float)."""
         self.phase_kick = float(value)
-        self.update()
-
-    def set_k(self, valor_k):
-        """Actualiza la constante elástica del átomo (N/m)."""
-        self.atomo.set_k(valor_k)
         self.update()
 
     def start(self):
@@ -106,10 +94,6 @@ class WaveCanvas(QWidget):
             return 0.0
         return (width // 2 + 100) * self.dx
 
-    # ----------------------------------------------------------
-    # Posiciones de átomos en píxeles
-    # ----------------------------------------------------------
-
     def _posiciones_atomos_px(self, width):
         if self.n_atomos == 1:
             return [width // 2]
@@ -134,46 +118,75 @@ class WaveCanvas(QWidget):
         painter.setPen(QPen(QColor("#404040"), 1))
         painter.drawLine(0, centro_y, width, centro_y)
 
+        resonancia = _en_resonancia(self.atomo)
+
         if self.wave_mode == "phase_kick":
-            self._paint_phase_kick(painter, width, centro_y)
+            self._paint_phase_kick(painter, width, centro_y, resonancia)
         elif self.wave_mode == "incidente_resultante":
-            self._paint_multicapa(painter, width, centro_y)
+            self._paint_multicapa(painter, width, centro_y, resonancia)
         else:
-            self._paint_modo_unico(painter, width, centro_y)
+            self._paint_modo_unico(painter, width, centro_y, resonancia)
 
-        self._paint_leyenda(painter)
+        self._paint_leyenda(painter, resonancia)
 
     # ----------------------------------------------------------
-    # NUEVO MODO: phase_kick — estilo 3B1B
+    # Indicador de absorción — se llama desde cualquier modo
     # ----------------------------------------------------------
 
-    def _paint_phase_kick(self, painter, width, centro_y):
+    def _paint_absorcion(self, painter, x_atomo_px, width, height):
         """
-        Divide el canvas en N+1 segmentos.
-        Segmento 0 (izquierda):  onda incidente pura, φ_acum = 0
-        Segmento i (i ≥ 1):     misma onda + φ_acum = i · phase_kick
+        Dibuja una zona roja semitransparente después del átomo
+        y el texto ABSORCIÓN.
+        """
+        # Zona roja de absorción
+        painter.fillRect(
+            x_atomo_px, 0,
+            width - x_atomo_px, height,
+            QColor(180, 20, 20, 35),
+        )
+        # Línea vertical roja en el átomo
+        painter.setPen(QPen(QColor(255, 60, 60, 200), 2))
+        painter.drawLine(x_atomo_px, 0, x_atomo_px, height)
 
-        Solo cambia la fase acumulada — amplitud y frecuencia iguales.
-        Líneas azul-claro marcan la posición de cada átomo (separadores).
-        """
+        # Texto
+        font = QFont()
+        font.setPointSize(12)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QColor(255, 80, 80, 220))
+        painter.drawText(
+            x_atomo_px + 20,
+            height // 2 - 10,
+            "ABSORCIÓN  (ωr ≈ ωl)",
+        )
+        font2 = QFont()
+        font2.setPointSize(9)
+        painter.setFont(font2)
+        painter.setPen(QColor(255, 140, 140, 180))
+        painter.drawText(
+            x_atomo_px + 20,
+            height // 2 + 12,
+            "La onda no se propaga más allá del material",
+        )
+
+    # ----------------------------------------------------------
+    # phase_kick
+    # ----------------------------------------------------------
+
+    def _paint_phase_kick(self, painter, width, centro_y, resonancia):
         atomos_px = self._posiciones_atomos_px(width)
         N         = len(atomos_px)
+        bordes    = [0] + atomos_px + [width]
 
-        # Límites de todos los segmentos:
-        # seg 0: [0, atomos_px[0]]
-        # seg i: [atomos_px[i-1], atomos_px[i]]
-        # seg N: [atomos_px[-1], width]
-        bordes = [0] + atomos_px + [width]
+        # En resonancia: solo dibujamos el segmento 0 (antes del primer átomo)
+        n_segmentos = 1 if resonancia else N + 1
 
-        for i in range(N + 1):
-            px_start = bordes[i]
-            px_end   = bordes[i + 1]
+        for i in range(n_segmentos):
+            px_start   = bordes[i]
+            px_end     = bordes[i + 1]
             phase_acum = i * self.phase_kick
 
-            # Color: amarillo con ligera variación por segmento
-            # (igual que la imagen de referencia: todo amarillo)
             painter.setPen(QPen(QColor("#ffdd00"), 2))
-
             for px in range(px_start, min(px_end, width - 1)):
                 x1 = px       * self.dx
                 x2 = (px + 1) * self.dx
@@ -181,29 +194,29 @@ class WaveCanvas(QWidget):
                 y2 = centro_y + _onda_phase_kick(x2, self.t, phase_acum)
                 painter.drawLine(px, int(y1), px + 1, int(y2))
 
-        # ── Separadores en posición de cada átomo ──────────────
-        # Líneas verticales azul-claro, igual que en la imagen 3B1B
         painter.setPen(QPen(QColor(100, 180, 255, 160), 1))
         for px in atomos_px:
             painter.drawLine(px, 0, px, self.height())
 
-        # ── Átomos ─────────────────────────────────────────────
         radio = 8 if N > 5 else 14
         for px in atomos_px:
             _dibujar_atomo_estatico(painter, px, centro_y, "", radio)
 
+        if resonancia:
+            self._paint_absorcion(painter, atomos_px[0], width, self.height())
+
     # ----------------------------------------------------------
-    # Modo multicapa — incidente_resultante con N átomos
+    # incidente_resultante multicapa
     # ----------------------------------------------------------
 
-    def _paint_multicapa(self, painter, width, centro_y):
+    def _paint_multicapa(self, painter, width, centro_y, resonancia):
         atomos_px = self._posiciones_atomos_px(width)
         N         = len(atomos_px)
 
         C_inc = np.array([0x00, 0xff, 0x88])
         C_res = np.array([0xcf, 0xe9, 0x66])
 
-        # Onda incidente pura antes del primer átomo
+        # Onda incidente antes del primer átomo — siempre
         painter.setPen(QPen(QColor("#00ff88"), 2))
         for px in range(atomos_px[0]):
             x1 = px       * self.dx
@@ -212,35 +225,42 @@ class WaveCanvas(QWidget):
             y2 = centro_y + onda_incidente(x2, self.t)
             painter.drawLine(px, int(y1), px + 1, int(y2))
 
-        # Onda resultante por segmento
-        for i in range(N):
-            px_start = atomos_px[i]
-            px_end   = atomos_px[i + 1] if i + 1 < N else width
-            alpha    = i / max(N - 1, 1)
-            rgb      = ((1 - alpha) * C_inc + alpha * C_res).astype(int)
-            color    = QColor(int(rgb[0]), int(rgb[1]), int(rgb[2]))
-            painter.setPen(QPen(color, 2))
+        # Si NO hay resonancia: dibujamos la onda resultante por segmento
+        if not resonancia:
+            for i in range(N):
+                px_start = atomos_px[i]
+                px_end   = atomos_px[i + 1] if i + 1 < N else width
+                alpha    = i / max(N - 1, 1)
+                rgb      = ((1 - alpha) * C_inc + alpha * C_res).astype(int)
+                color    = QColor(int(rgb[0]), int(rgb[1]), int(rgb[2]))
+                painter.setPen(QPen(color, 2))
 
-            for px in range(px_start, min(px_end, width - 1)):
-                x1 = px       * self.dx
-                x2 = (px + 1) * self.dx
-                y1 = centro_y + onda_resultante(x1, self.t, self.atomo)
-                y2 = centro_y + onda_resultante(x2, self.t, self.atomo)
-                painter.drawLine(px, int(y1), px + 1, int(y2))
+                for px in range(px_start, min(px_end, width - 1)):
+                    x1 = px       * self.dx
+                    x2 = (px + 1) * self.dx
+                    y1 = centro_y + onda_resultante(x1, self.t, self.atomo)
+                    y2 = centro_y + onda_resultante(x2, self.t, self.atomo)
+                    painter.drawLine(px, int(y1), px + 1, int(y2))
 
         radio = 10 if N > 5 else 16
         for px in atomos_px:
-            _dibujar_atomo_estatico(painter, px, centro_y, "" if N > 1 else self.atomo.nombre, radio)
+            _dibujar_atomo_estatico(
+                painter, px, centro_y,
+                "" if N > 1 else self.atomo.nombre, radio,
+            )
 
         painter.setPen(QPen(QColor(70, 70, 70, 90), 1))
         for px in atomos_px:
             painter.drawLine(px, 0, px, self.height())
 
+        if resonancia:
+            self._paint_absorcion(painter, atomos_px[0], width, self.height())
+
     # ----------------------------------------------------------
-    # Modos simples — sin cambios
+    # Modos simples
     # ----------------------------------------------------------
 
-    def _paint_modo_unico(self, painter, width, centro_y):
+    def _paint_modo_unico(self, painter, width, centro_y, resonancia):
         atomo_cx = width // 2
 
         if self.wave_mode == "emitida":
@@ -255,6 +275,27 @@ class WaveCanvas(QWidget):
             wave_fn = onda_incidente
 
         painter.setPen(QPen(color, 3))
+
+        # En resonancia: modos que muestran la zona derecha no dibujan nada ahí
+        if resonancia and self.wave_mode in ("resultante", "emitida"):
+            # Solo dibujamos el átomo y el indicador — sin onda
+            _dibujar_atomo_estatico(painter, atomo_cx, centro_y, self.atomo.nombre)
+            self._paint_absorcion(painter, atomo_cx, width, self.height())
+            return
+
+        # Modo incidente en resonancia: dibujamos solo la mitad izquierda
+        if resonancia and self.wave_mode == "incidente":
+            for px in range(atomo_cx):
+                x1 = px       * self.dx
+                x2 = (px + 1) * self.dx
+                y1 = centro_y + wave_fn(x1, self.t)
+                y2 = centro_y + wave_fn(x2, self.t)
+                painter.drawLine(px, int(y1), px + 1, int(y2))
+            _dibujar_atomo_estatico(painter, atomo_cx, centro_y, self.atomo.nombre)
+            self._paint_absorcion(painter, atomo_cx, width, self.height())
+            return
+
+        # Caso normal — sin resonancia
         start_x = atomo_cx + 1 if self.wave_mode == "resultante" else 0
         end_x   = width        if self.wave_mode == "resultante" else width - 1
 
@@ -275,14 +316,22 @@ class WaveCanvas(QWidget):
     # Leyenda
     # ----------------------------------------------------------
 
-    def _paint_leyenda(self, painter):
+    def _paint_leyenda(self, painter, resonancia):
         font = QFont()
         font.setPointSize(9)
         painter.setFont(font)
 
+        if resonancia:
+            # La leyenda de absorción domina — solo añadimos la línea de modo
+            painter.setPen(QColor("#00ff88"))
+            painter.drawText(20, 20, "── Onda incidente")
+            painter.setPen(QColor(255, 80, 80))
+            painter.drawText(20, 38, "✕  Onda absorbida  (ωr = ωl)")
+            return
+
         if self.wave_mode == "phase_kick":
             painter.setPen(QColor("#ffdd00"))
-            painter.drawText(20, 20, "── Phase kick")
+            painter.drawText(20, 20, "── Phase kick  (estilo 3B1B)")
             painter.setPen(QColor("#ff6666"))
             painter.drawText(20, 38, f"Phase kick = {self.phase_kick:.2f} rad")
             painter.setPen(QColor("#aaaaaa"))
