@@ -234,6 +234,9 @@ class WaveCanvas(QWidget):
         for _ in range(N):
             A_i = A_base * (abs(phasor) / E0_vis)
             phasor += A_i * cmath.exp(1j * phi)
+            # evitar divergencia con N grande en sub-resonancia
+            if abs(phasor) > 500:
+                phasor = 500 * phasor / abs(phasor)
             segmentos.append(phasor)
 
         # ── Segmento 0: onda incidente pura ──────────────────────
