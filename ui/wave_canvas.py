@@ -1,3 +1,4 @@
+import cmath
 import numpy as np
 
 from PyQt6.QtCore import QPointF
@@ -222,6 +223,20 @@ class WaveCanvas(QWidget):
         C_inc = np.array([0x00, 0xff, 0x88])
         C_res = np.array([0xcf, 0xe9, 0x66])
 
+        # ── Fasor acumulado: E0_eff recalculado en cada capa ──────
+        # segmentos[i] = fasor complejo DESPUÉS de pasar por i átomos
+        # El dibujo del segmento i usa abs(segmentos[i]) y phase(segmentos[i])
+        E0_vis  = 50.0
+        A_base  = _escalar_amplitud_con_atomo(amplitud_oscilacion(self.atomo), self.atomo)
+        phi     = phi_emision(self.atomo)
+        phasor  = complex(E0_vis, 0)
+        segmentos = [phasor]
+        for _ in range(N):
+            A_i = A_base * (abs(phasor) / E0_vis)
+            phasor += A_i * cmath.exp(1j * phi)
+            segmentos.append(phasor)
+
+        # ── Segmento 0: onda incidente pura ──────────────────────
         painter.setPen(QPen(QColor("#00ff88"), 2))
         for px in range(atomos_px[0]):
             x1 = px * self.dx; x2 = (px + 1) * self.dx
@@ -229,17 +244,20 @@ class WaveCanvas(QWidget):
             y2 = centro_y + onda_incidente(x2, t)
             painter.drawLine(px, int(y1), px + 1, int(y2))
 
+        # ── Segmentos 1..N: resultante acumulada por capa ────────
         if not res:
             for i in range(N):
                 px_start = atomos_px[i]
                 px_end   = atomos_px[i + 1] if i + 1 < N else width
+                amp      = abs(segmentos[i + 1])
+                fase_seg = cmath.phase(segmentos[i + 1])
                 alpha    = i / max(N - 1, 1)
                 rgb      = ((1 - alpha) * C_inc + alpha * C_res).astype(int)
                 painter.setPen(QPen(QColor(int(rgb[0]), int(rgb[1]), int(rgb[2])), 2))
                 for px in range(px_start, min(px_end, width - 1)):
                     x1 = px * self.dx; x2 = (px + 1) * self.dx
-                    y1 = centro_y + onda_resultante(x1, t, self.atomo)
-                    y2 = centro_y + onda_resultante(x2, t, self.atomo)
+                    y1 = centro_y + amp * np.sin(K_1 * x1 - OMEGA_L * t + fase_seg)
+                    y2 = centro_y + amp * np.sin(K_1 * x2 - OMEGA_L * t + fase_seg)
                     painter.drawLine(px, int(y1), px + 1, int(y2))
 
         radio = 10 if N > 5 else 16
