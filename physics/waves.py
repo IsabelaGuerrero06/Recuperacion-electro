@@ -26,6 +26,9 @@ OMEGA_L = 2 * np.pi * F_1
 # Número de onda  k = 2π/λ  (rad/m)
 K_1 = 2 * np.pi / LAMBDA_VISUAL
 
+# Amortiguamiento — suaviza la transición en resonancia
+GAMMA = 0.2 * OMEGA_L
+
 
 # ============================================================
 # ESCALA VISUAL DE AMPLITUD
@@ -64,6 +67,16 @@ def _escalar_amplitud_con_atomo(A_x_fisico, atomo):
 def _escalar_amplitud(A_x_fisico):
     """Escala genérica (sin átomo). Solo para compatibilidad en UI."""
     return float(np.clip(A_x_fisico * 1e28, -120, 120))
+
+
+# ============================================================
+# FASE DE EMISIÓN  φ = −arctan(γ·ωl / (ωr² − ωl²))
+# ============================================================
+
+def phi_emision(atomo):
+    """Desfase de la onda emitida respecto a la incidente (rad)."""
+    denom = atomo.omega_r**2 - OMEGA_L**2
+    return -np.arctan2(GAMMA * OMEGA_L, denom)
 
 
 # ============================================================
@@ -128,7 +141,7 @@ def onda_emitida(x, t, atomo):
     """g(x,t) = A_x · sin(k·x − ωl·t + φ) [unidades visuales]"""
     A_x_fis = amplitud_oscilacion(atomo)
     A_x_vis = _escalar_amplitud_con_atomo(A_x_fis, atomo)
-    return A_x_vis * np.sin(K_1 * x - OMEGA_L * t + atomo.phi)
+    return A_x_vis * np.sin(K_1 * x - OMEGA_L * t + phi_emision(atomo))
 
 
 # ============================================================
@@ -157,7 +170,7 @@ def campo_electrico_emitido(x, t, atomo):
     """E_emit(x,t) = A_x·cos(k·x − ωl·t + φ) [unidades visuales]"""
     A_x_fis = amplitud_oscilacion(atomo)
     A_x_vis = _escalar_amplitud_con_atomo(A_x_fis, atomo)
-    return A_x_vis * np.cos(K_1 * x - OMEGA_L * t + atomo.phi)
+    return A_x_vis * np.cos(K_1 * x - OMEGA_L * t + phi_emision(atomo))
 
 
 def campo_electrico_resultante(x, t, atomo):
@@ -185,7 +198,7 @@ def campo_magnetico_emitido(x, t, atomo):
     """B_emit(x,t) = (A_x/c)·cos(k·x − ωl·t + φ)"""
     A_x_fis = amplitud_oscilacion(atomo)
     A_x_vis = _escalar_amplitud_con_atomo(A_x_fis, atomo)
-    return (A_x_vis / C) * np.cos(K_1 * x - OMEGA_L * t + atomo.phi)
+    return (A_x_vis / C) * np.cos(K_1 * x - OMEGA_L * t + phi_emision(atomo))
 
 
 def campo_magnetico_resultante(x, t, atomo):

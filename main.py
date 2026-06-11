@@ -1,12 +1,12 @@
 """
-Simulador de Interacción Radiación–Materia
+Simulador de Interacción Radiación-Materia
 Modelo de Lorentz (Oscilador Armónico Forzado)
 """
 
 import sys
 import numpy as np
 
-from PyQt6.QtWidgets import (
+from PyQt6.QtWidgets import ( 
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QSlider, QSpinBox, QFrame,
 )
@@ -82,7 +82,6 @@ class Simulador(QWidget):
             masa=M_ELECTRON,
             carga=1.6e-19,
             constante_elastica=k_inicial,
-            fase=np.pi / 4,
         )
 
         # ── PANEL IZQUIERDO ──────────────────────────────────

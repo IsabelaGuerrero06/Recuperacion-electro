@@ -14,6 +14,7 @@ from physics.waves import (
     amplitud_oscilacion,
     _escalar_amplitud,
     _escalar_amplitud_con_atomo,
+    phi_emision,
     K_1,
     OMEGA_L,
 )
@@ -190,13 +191,14 @@ class WaveCanvas(QWidget):
         bordes    = [0] + atomos_px + [width]
         n_seg     = 1 if res else N + 1
 
+        delta_phi = phi_emision(self.atomo)
         for i in range(n_seg):
             painter.setPen(QPen(QColor("#ffdd00"), 2))
             for px in range(bordes[i], min(bordes[i + 1], width - 1)):
                 x1 = px       * self.dx
                 x2 = (px + 1) * self.dx
-                y1 = centro_y + _onda_phase_kick(x1, t, i * self.phase_kick)
-                y2 = centro_y + _onda_phase_kick(x2, t, i * self.phase_kick)
+                y1 = centro_y + _onda_phase_kick(x1, t, i * delta_phi)
+                y2 = centro_y + _onda_phase_kick(x2, t, i * delta_phi)
                 painter.drawLine(px, int(y1), px + 1, int(y2))
 
         painter.setPen(QPen(QColor(100, 180, 255, 160), 1))
@@ -316,7 +318,7 @@ class WaveCanvas(QWidget):
             painter.setPen(QColor("#ffdd00"))
             painter.drawText(20, 20, "── Phase kick  (estilo 3B1B)")
             painter.setPen(QColor("#ff6666"))
-            painter.drawText(20, 38, f"Phase kick = {self.phase_kick:.2f} rad")
+            painter.drawText(20, 38, f"φ = {phi_emision(self.atomo):.3f} rad  (calculado de K)")
             painter.setPen(QColor("#aaaaaa"))
             painter.drawText(20, 56, f"N = {self.n_atomos} átomos")
         elif self.wave_mode == "incidente_resultante":

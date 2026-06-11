@@ -24,6 +24,19 @@ OMEGA_1 = 2 * np.pi * F_1
 # Número de onda  k = 2π/λ  (rad/m)
 K_1 = 2 * np.pi / LAMBDA_1
 
+# Amortiguamiento — suaviza la transición en resonancia
+GAMMA_1 = 0.2 * OMEGA_1
+
+
+# ============================================================
+# FASE DE EMISIÓN  φ = −arctan(γ·ωl / (ωr² − ωl²))
+# ============================================================
+
+def phi_emision_real(atomo):
+    """Desfase de la onda emitida respecto a la incidente (rad)."""
+    denom = atomo.omega_r**2 - OMEGA_1**2
+    return -np.arctan2(GAMMA_1 * OMEGA_1, denom)
+
 
 # ============================================================
 # AMPLITUD DE OSCILACIÓN DEL ELECTRÓN (sin escala visual)
@@ -55,7 +68,7 @@ def onda_incidente(x, t):
 def onda_emitida(x, t, atomo):
     """g(x,t) = A_x·sin(k·x − ωl·t + φ)"""
     A_x = amplitud_oscilacion_real(atomo)
-    return A_x * np.sin(K_1 * x - OMEGA_1 * t + atomo.phi)
+    return A_x * np.sin(K_1 * x - OMEGA_1 * t + phi_emision_real(atomo))
 
 
 # Alias para compatibilidad con el sidebar
@@ -75,7 +88,7 @@ def campo_electrico_incidente(x, t):
 def campo_electrico_emitido(x, t, atomo):
     """E_emit(x,t) = A_x·cos(k·x − ωl·t + φ)"""
     A_x = amplitud_oscilacion_real(atomo)
-    return A_x * np.cos(K_1 * x - OMEGA_1 * t + atomo.phi)
+    return A_x * np.cos(K_1 * x - OMEGA_1 * t + phi_emision_real(atomo))
 
 
 def campo_electrico_material(x, t, atomo):
@@ -103,7 +116,7 @@ def campo_magnetico_incidente(x, t):
 def campo_magnetico_emitido(x, t, atomo):
     """B_emit(x,t) = (A_x/c)·cos(k·x − ωl·t + φ)"""
     A_x = amplitud_oscilacion_real(atomo)
-    return (A_x / C) * np.cos(K_1 * x - OMEGA_1 * t + atomo.phi)
+    return (A_x / C) * np.cos(K_1 * x - OMEGA_1 * t + phi_emision_real(atomo))
 
 
 def campo_magnetico_material(x, t, atomo):

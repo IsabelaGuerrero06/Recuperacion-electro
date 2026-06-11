@@ -35,7 +35,6 @@ class Atomo:
     masa              : float  — masa del electrón ligado (kg)
     carga             : float  — carga del electrón (C)
     constante_elastica: float  — constante elástica de la ligadura (N/m)
-    fase              : float  — desfase de la onda emitida (rad)
     """
 
     def __init__(
@@ -44,7 +43,6 @@ class Atomo:
         masa,
         carga,
         constante_elastica,
-        fase
     ):
         self.nombre = nombre
 
@@ -52,7 +50,6 @@ class Atomo:
         self.m = masa                   # kg
         self.q = carga                  # C
         self.k = constante_elastica     # N/m
-        self.phi = fase                 # rad
 
         # Frecuencia natural de resonancia: ωr = √(k/m)
         self.omega_r = np.sqrt(
