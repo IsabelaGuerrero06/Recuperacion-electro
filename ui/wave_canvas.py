@@ -217,29 +217,57 @@ class WaveCanvas(QWidget):
     # incidente_resultante
     # ----------------------------------------------------------
 
-    def _paint_multicapa(self, painter, width, centro_y, t, res):
-        atomos_px = self._posiciones_atomos_px(width)
-        N         = len(atomos_px)
-        C_inc = np.array([0x00, 0xff, 0x88])
-        C_res = np.array([0xcf, 0xe9, 0x66])
+    def _calcular_segmentos(self, N):
+        """
+        Propaga la onda a través de N capas atómicas usando el modelo de Lorentz.
 
-        # ── Fasor acumulado: E0_eff recalculado en cada capa ──────
-        # segmentos[i] = fasor complejo DESPUÉS de pasar por i átomos
-        # El dibujo del segmento i usa abs(segmentos[i]) y phase(segmentos[i])
+        Física:
+          Cada átomo i recibe la resultante anterior como su nueva incidente.
+          Su amplitud de emisión es proporcional a la amplitud que recibe:
+
+              A_emit_i = (A_base / E0_vis) · |phasor_i|
+
+          La resultante tras pasar por el átomo i es:
+
+              phasor_{i+1} = phasor_i + A_emit_i · e^{iφ}
+
+          donde φ = φ_emisión(ωr, ωl) es el ángulo de Lorentz, igual para
+          todos los átomos (misma k, mismo material).
+
+        Retorna lista de fasores complejos: segmentos[0] = incidente original,
+        segmentos[i] = resultante después de i átomos.
+        """
         E0_vis  = 50.0
+        # Ratio de emisión: cuánta amplitud visual emite el átomo por unidad
+        # de campo incidente (normalizado a E0_vis).
         A_base  = _escalar_amplitud_con_atomo(amplitud_oscilacion(self.atomo), self.atomo)
-        phi     = phi_emision(self.atomo)
-        phasor  = complex(E0_vis, 0)
+        ratio   = A_base / E0_vis          # adimensional
+        phi     = phi_emision(self.atomo)  # ángulo de desfase de Lorentz
+
+        phasor    = complex(E0_vis, 0)
         segmentos = [phasor]
+
         for _ in range(N):
-            A_i = A_base * (abs(phasor) / E0_vis)
-            phasor += A_i * cmath.exp(1j * phi)
-            # evitar divergencia con N grande en sub-resonancia
+            # Amplitud emitida proporcional a la incidente que recibe este átomo
+            A_emit = ratio * abs(phasor)
+            phasor = phasor + A_emit * cmath.exp(1j * phi)
+            # Clip para evitar divergencia numérica
             if abs(phasor) > 500:
                 phasor = 500 * phasor / abs(phasor)
             segmentos.append(phasor)
 
-        # ── Segmento 0: onda incidente pura ──────────────────────
+        return segmentos
+
+    def _paint_multicapa(self, painter, width, centro_y, t, res):
+        atomos_px = self._posiciones_atomos_px(width)
+        N         = len(atomos_px)
+        C_inc     = np.array([0x00, 0xff, 0x88])
+        C_res     = np.array([0xcf, 0xe9, 0x66])
+
+        # ── Propagar a través de las N capas ─────────────────────
+        segmentos = self._calcular_segmentos(N)
+
+        # ── Segmento 0: onda incidente pura (antes del primer átomo) ─
         painter.setPen(QPen(QColor("#00ff88"), 2))
         for px in range(atomos_px[0]):
             x1 = px * self.dx; x2 = (px + 1) * self.dx
@@ -248,6 +276,8 @@ class WaveCanvas(QWidget):
             painter.drawLine(px, int(y1), px + 1, int(y2))
 
         # ── Segmentos 1..N: resultante acumulada por capa ────────
+        # Cada segmento es la onda resultante entre el átomo i y el i+1.
+        # Su amplitud y fase provienen del fasor acumulado.
         if not res:
             for i in range(N):
                 px_start = atomos_px[i]
@@ -343,13 +373,16 @@ class WaveCanvas(QWidget):
             painter.setPen(QColor("#aaaaaa"))
             painter.drawText(20, 56, f"N = {self.n_atomos} átomos")
         elif self.wave_mode == "incidente_resultante":
+            phi_val = phi_emision(self.atomo)
             painter.setPen(QColor("#00ff88"))
             painter.drawText(20, 20, "── Onda incidente")
             painter.setPen(QColor("#cfe966"))
-            painter.drawText(20, 38, "── Onda resultante  (por segmento)")
+            painter.drawText(20, 38, "── Onda resultante  (acumulada por capa)")
+            painter.setPen(QColor("#ff9966"))
+            painter.drawText(20, 56, f"φ_emisión = {phi_val:.3f} rad  =  {np.degrees(phi_val):.1f}°")
             painter.setPen(QColor("#aaaaaa"))
             A_vis = _escalar_amplitud(amplitud_oscilacion(self.atomo))
-            painter.drawText(20, 56, f"N = {self.n_atomos}  |  A_x = {A_vis:.1f} px")
+            painter.drawText(20, 74, f"N = {self.n_atomos}  |  A_x = {A_vis:.1f} px")
         elif self.wave_mode == "emitida":
             painter.setPen(QColor("#ffcc66"))
             painter.drawText(20, 20, "── Onda emitida")

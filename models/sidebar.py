@@ -1,3 +1,4 @@
+import cmath
 import math
 import numpy as np
 
@@ -12,6 +13,7 @@ from physics.waves_no_scale import (
     onda_incidente,
     onda_emitida,
     amplitud_oscilacion_real,
+    phi_emision_real,
 )
 
 from PyQt6.QtCore import Qt, QTimer, QPointF
@@ -42,6 +44,7 @@ class CalculationSidebar(Panel):
         self.atomo       = atomo
         self.on_wave_mode_change = on_wave_mode_change
         self.wave_mode = "incidente_resultante"
+        self.n_atomos  = 1
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -77,16 +80,18 @@ class CalculationSidebar(Panel):
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(10)
 
-        self.lorentz_label = QLabel()
-        self.onda_label    = QLabel()
-        self.campo_e_label = QLabel()
-        self.campo_b_label = QLabel()
+        self.lorentz_label   = QLabel()
+        self.onda_label      = QLabel()
+        self.campo_e_label   = QLabel()
+        self.campo_b_label   = QLabel()
+        self.multicapa_label = QLabel()
 
         for label in [
             self.lorentz_label,
             self.onda_label,
             self.campo_e_label,
             self.campo_b_label,
+            self.multicapa_label,
         ]:
             label.setWordWrap(True)
             label.setTextFormat(Qt.TextFormat.RichText)
@@ -101,6 +106,7 @@ class CalculationSidebar(Panel):
         content_layout.addWidget(self.onda_label)
         content_layout.addWidget(self.campo_e_label)
         content_layout.addWidget(self.campo_b_label)
+        content_layout.addWidget(self.multicapa_label)
         content_layout.addStretch(1)
 
         scroll = QScrollArea()
@@ -134,8 +140,9 @@ class CalculationSidebar(Panel):
         self.update_values()
 
     def set_n_atomos(self, n):
-        """Placeholder para compatibilidad con otros canvas."""
-        pass
+        """Actualiza N capas y refresca los cálculos."""
+        self.n_atomos = max(1, int(n))
+        self.update_values()
 
     def set_phase_kick(self, value):
         """Placeholder para compatibilidad con otros canvas."""
@@ -151,6 +158,126 @@ class CalculationSidebar(Panel):
             if self.on_wave_mode_change is not None:
                 self.on_wave_mode_change(mode)
             self.update_values()
+
+    def _calcular_segmentos(self):
+        """
+        Propaga la onda a través de self.n_atomos capas.
+
+        El ratio de emisión se calcula de forma adimensional:
+
+            A_ref = q·E0 / (m·ωl²)    →  la amplitud que tendría el electrón
+                                           si ωr = 0 (límite estático)
+            A_fis = q·E0 / (m·(ωr²−ωl²))
+
+            ratio = A_fis / A_ref = ωl² / (ωr² − ωl²)
+
+        Así ratio es puro número: cuánto emite el átomo por unidad de campo
+        normalizado que recibe. El fasor se propaga normalizado a 1 (= E0).
+
+        φ = phi_emision_real(atomo) = −arctan(γ·ωl / (ωr²−ωl²))
+        """
+        a    = self.atomo
+        A_fis = amplitud_oscilacion_real(a)           # metros reales
+        A_ref = (a.q * 50.0) / (a.m * OMEGA_1**2)    # amplitud de referencia (m)
+        ratio = A_fis / A_ref if abs(A_ref) > 1e-60 else 0.0   # adimensional
+        phi   = phi_emision_real(a)
+
+        phasor    = complex(1.0, 0)   # normalizado: phasor_0 = 1 × E0
+        segmentos = [phasor]
+
+        for _ in range(self.n_atomos):
+            A_emit = ratio * abs(phasor)
+            phasor = phasor + A_emit * cmath.exp(1j * phi)
+            if abs(phasor) > 1e4:
+                phasor = 1e4 * phasor / abs(phasor)
+            segmentos.append(phasor)
+
+        return segmentos, phi, ratio
+
+    def _texto_multicapa(self):
+        """Genera las líneas HTML para la sección de N capas."""
+        N = self.n_atomos
+
+        # Solo mostrar si está en el modo correcto o si N > 1
+        if self.wave_mode not in ("incidente_resultante",) and N == 1:
+            self.multicapa_label.setText("")
+            return
+
+        segmentos, phi, ratio = self._calcular_segmentos()
+        phi_deg = np.degrees(phi)
+
+        lineas = [
+            "<span style='color:#ff9966;font-weight:bold;'>Propagación N capas</span>",
+            "─────────────────────────────────────",
+            f"  N = {N} capas",
+            f"  φ_emisión = {phi:.4f} rad  ({phi_deg:.2f}°)",
+            f"  ratio = ωl²/(ωr²−ωl²) = {ratio:.4f}",
+            "",
+            "  <span style='color:#aaaaaa;'>Fasor (normalizado a E0):</span>",
+            "  p[i] = p[i-1] + ratio·|p[i-1]|·e^(iφ)",
+            "",
+        ]
+
+        # Mostrar las primeras capas, la del medio (si N>6) y la última
+        MAX_SHOW = 5
+        if N <= MAX_SHOW * 2:
+            indices = list(range(N + 1))
+        else:
+            # primeras MAX_SHOW, «…», última
+            indices = list(range(MAX_SHOW)) + [-1] + [N]
+
+        prev_ellipsis = False
+        for idx in indices:
+            if idx == -1:
+                lineas.append("  &nbsp;&nbsp;⋮")
+                prev_ellipsis = True
+                continue
+            p   = segmentos[idx]
+            amp = abs(p)
+            fase = cmath.phase(p)
+            fase_deg = np.degrees(fase)
+            if idx == 0:
+                etiqueta = "incidente"
+                color    = "#00ff88"
+            elif idx == N:
+                etiqueta = "final "
+                color    = "#cfe966"
+            else:
+                etiqueta = f"capa {idx:2d}"
+                color    = "#aaccff"
+            lineas.append(
+                f"  <span style='color:{color};'>p[{idx:3d}]</span>"
+                f"  amp={amp:.4f}  φ={fase_deg:+7.2f}°  ({etiqueta})"
+            )
+
+        # Resumen final
+        p_final   = segmentos[N]
+        amp_final = abs(p_final)
+        fase_final = np.degrees(cmath.phase(p_final))
+        delta_fase = fase_final  # respecto a la incidente (fase_0 = 0°)
+
+        lineas += [
+            "",
+            "  <span style='color:#ffd166;'>Resumen tras N capas:</span>",
+            f"  Amplitud resultante = {amp_final:.4f} × E0",
+            f"  Desfase acumulado   = {delta_fase:+.2f}°",
+        ]
+
+        # Indicar régimen físico
+        if abs(phi_deg + 90) < 5:
+            regimen = "resonancia — absorción máxima"
+            col_reg = "#ff5555"
+        elif phi_deg > -90:
+            regimen = "sub-resonante — adelanto de fase"
+            col_reg = "#88ddff"
+        else:
+            regimen = "super-resonante — retraso de fase"
+            col_reg = "#ffaa55"
+        lineas.append(
+            f"  <span style='color:{col_reg};'>Régimen: {regimen}</span>"
+        )
+
+        self.multicapa_label.setText("<br>".join(lineas))
 
     def update_values(self):
         x = self.wave_canvas.sample_x()
@@ -279,6 +406,9 @@ class CalculationSidebar(Panel):
             "─────────────────────────────────────",
             *b_lineas,
         ]))
+
+        # ── Sección N capas ───────────────────────────────────
+        self._texto_multicapa()
 
 
 # ================================================================

@@ -248,6 +248,7 @@ class Simulador(QWidget):
     def _on_n_changed(self, value):
         self.n_value_label.setText(str(value))
         self.simulacion_principal.set_n_atomos(value)
+        self.sidebar.set_n_atomos(value)
 
     def _set_n(self, value):
         self.n_slider.setValue(value)
